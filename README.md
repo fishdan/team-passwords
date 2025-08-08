@@ -3,6 +3,8 @@
 [![Version](https://img.shields.io/badge/version-0.1-blue.svg)](#)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![WordPress](https://img.shields.io/badge/WordPress-%5E6.0-blue)](https://wordpress.org/)
+[![Download](https://img.shields.io/github/v/release/fishdan/Utilities?display_name=tag&sort=semver)](https://github.com/fishdan/Utilities/releases/latest)
+
 
 A lightweight WordPress plugin for securely storing and sharing passwords with your team.
 
@@ -21,6 +23,7 @@ A lightweight WordPress plugin for securely storing and sharing passwords with y
 - Works on frontend and admin dashboard
 
 ---
+
 
 ## 📦 Installation
 1. Copy the `team-passwords` folder into your WordPress `wp-content/plugins` directory.
