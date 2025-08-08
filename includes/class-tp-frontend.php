@@ -9,7 +9,28 @@ class TP_Frontend
         add_shortcode('team_passwords', [$this, 'render_passwords_shortcode']);
         add_action('wp_enqueue_scripts', [$this, 'enqueue_assets']);
         add_action('admin_post_tp_frontend_add_password', [$this, 'handle_add_password']);
+        add_action('wp_footer', [$this, 'force_modal_to_body'], 100);
     }
+
+    public function force_modal_to_body()
+    {
+        if (!is_page())
+            return;
+        global $post;
+        if (!$post || !is_a($post, 'WP_Post') || !has_shortcode($post->post_content, 'team_passwords'))
+            return;
+        ?>
+                <script>
+                    (function () {
+                        var m = document.getElementById('tpAddModal');
+                        if (m && m.parentNode !== document.body) {
+                            document.body.appendChild(m);
+                        }
+                    })();
+                </script>
+                <?php
+    }
+
 
     public function handle_add_password()
     {
@@ -42,25 +63,30 @@ class TP_Frontend
             'owner_user_id' => $owner,
             'shared_roles' => json_encode(['administrator']),
         ]);
-
-        wp_redirect(add_query_arg('added', '1', wp_get_referer()));
+        // was: wp_redirect(add_query_arg('added', '1', wp_get_referer()));
+        wp_redirect(add_query_arg('added', '1', tp_get_vault_url()));
         exit;
+
     }
 
 
     public function enqueue_assets()
     {
         if (!is_page())
-            return; // Only load on pages
-        // Optional: only load when shortcode is used
-        global $post;
-        if (!has_shortcode($post->post_content, 'team_passwords'))
             return;
-        // Load Bootstrap (from CDN)
+
+        global $post;
+        if (!$post || !is_a($post, 'WP_Post') || !has_shortcode($post->post_content, 'team_passwords'))
+            return;
+
+        // CSS
         wp_enqueue_style('tp-bootstrap', 'https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css');
-        // Load your CSS
-        wp_enqueue_style('tp-frontend-style', plugins_url('../assets/css/frontend.css', __FILE__));
+        wp_enqueue_style('tp-frontend-style', plugin_dir_url(__DIR__) . 'assets/css/frontend.css');
+
+        // JS (Bootstrap bundle includes Popper)
+        wp_enqueue_script('tp-bootstrap', 'https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js', [], null, true);
     }
+
 
     public function render_passwords_shortcode()
     {
@@ -171,39 +197,64 @@ class TP_Frontend
             <h2>Team Passwords</h2>
 
             <?php if (current_user_can('add_team_passwords')): ?>
-                <div class="card mb-4">
-                    <div class="card-body">
-                        <h5 class="card-title">Add Password</h5>
-                        <form method="POST" action="<?php echo esc_url(admin_url('admin-post.php')); ?>">
-                            <?php wp_nonce_field('tp_frontend_add_password'); ?>
-                            <input type="hidden" name="action" value="tp_frontend_add_password">
+                                                                <div class="d-flex justify-content-end mb-3">
+                                                                    <!-- Button stays the same -->
+                                                                    <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#tpAddModal">
+                                                                        Add Password
+                                                                    </button>
+                                                    
+                                                                    <!-- Modal -->
+                                                                    <div class="modal fade tp-modal" id="tpAddModal" tabindex="-1" aria-labelledby="tpAddModalLabel" aria-hidden="true">
+                                                                        <div class="modal-dialog modal-dialog-centered">
+                                                                            <div class="modal-content">
+                                                                                <form method="POST" action="<?php echo esc_url(admin_url('admin-post.php')); ?>">
+                                                                        <?php wp_nonce_field('tp_frontend_add_password'); ?>
+                                                                        <input type="hidden" name="action" value="tp_frontend_add_password">
 
-                            <div class="row g-3 mb-3">
-                                <div class="col-md-4">
-                                    <label class="form-label">Title</label>
-                                    <input type="text" name="title" class="form-control" required>
-                                </div>
-                                <div class="col-md-4">
-                                    <label class="form-label">Username</label>
-                                    <input type="text" name="username" class="form-control">
-                                </div>
-                                <div class="col-md-4">
-                                    <label class="form-label">Password</label>
-                                    <input type="text" name="password" class="form-control" required>
-                                </div>
-                                <div class="col-md-6">
-                                    <label class="form-label">URL</label>
-                                    <input type="url" name="url" class="form-control">
-                                </div>
-                                <div class="col-md-6">
-                                    <label class="form-label">Notes</label>
-                                    <textarea name="notes" class="form-control"></textarea>
-                                </div>
+                                    <div class="modal-header px-3 py-2">
+                                        <h5 class="modal-title" id="tpAddModalLabel">Add Password</h5>
+                                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                                    </div>
+
+                                    <div class="modal-body p-3">
+                                        <div class="mb-3">
+                                            <label for="tp_title" class="form-label">Title</label>
+                                            <input type="text" id="tp_title" name="title" class="form-control" required autofocus>
+                                        </div>
+
+                                        <div class="mb-3">
+                                            <label for="tp_username" class="form-label">Username</label>
+                                            <input type="text" id="tp_username" name="username" class="form-control">
+                                        </div>
+
+                                        <div class="mb-3">
+                                            <label for="tp_password" class="form-label">Password</label>
+                                            <input type="text" id="tp_password" name="password" class="form-control" required>
+                                        </div>
+
+                                        <div class="mb-3">
+                                            <label for="tp_url" class="form-label">URL</label>
+                                            <input type="url" id="tp_url" name="url" class="form-control" placeholder="https://">
+                                        </div>
+
+                                        <div class="mb-3">
+                                            <label for="tp_notes" class="form-label">Notes</label>
+                                            <textarea id="tp_notes" name="notes" class="form-control" rows="3"></textarea>
+                                        </div>
+                                    </div>
+
+                                    <div class="modal-footer p-3">
+                                        <button type="button" class="btn btn-outline-secondary"
+                                            data-bs-dismiss="modal">Cancel</button>
+                                        <button type="submit" class="btn btn-primary">Save</button>
+                                    </div>
+                                </form>
                             </div>
-                            <button type="submit" class="btn btn-primary">Add</button>
-                        </form>
+                        </div>
                     </div>
+
                 </div>
+
             <?php endif; ?>
 
             <table class="table table-bordered team-passwords-table">

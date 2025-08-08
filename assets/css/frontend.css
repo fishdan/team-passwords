@@ -22,3 +22,30 @@
 .reveal-btn {
     margin-left: 8px;
 }
+/* Force Bootstrap modal behavior even if themes/plugins override .modal */
+/* Team Passwords – Bootstrap modal hardening */
+.tp-modal.modal {
+    position: fixed !important;
+    inset: 0 !important;
+    /* top/right/bottom/left = 0 */
+    z-index: 2147483000 !important;
+    /* above everything */
+}
+
+.modal-backdrop,
+.modal-backdrop.show {
+    z-index: 2147482999 !important;
+    /* just under the modal */
+}
+
+.tp-modal .modal-dialog {
+    max-width: 600px;
+    margin: 1.75rem auto;
+}
+
+/* Optional: tiny screens spacing */
+@media (max-width: 576px) {
+    .tp-modal .modal-dialog {
+        margin: 1rem auto;
+    }
+}
