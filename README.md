@@ -33,7 +33,7 @@ A lightweight WordPress plugin for securely storing and sharing passwords with y
    - Creates the `/team-passwords` page with the `[team_passwords]` shortcode if it doesn't exist.
    - Adds the `team_passwords_user` role.
 
-Alternatively download the latest zip file and install it via your wordpress "add plugin"
+Alternatively download the latest zip file from the button above and install it via your wordpress "add plugin"
 
 ---
 
