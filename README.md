@@ -3,7 +3,17 @@
 [![Version](https://img.shields.io/badge/version-0.1-blue.svg)](#)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![WordPress](https://img.shields.io/badge/WordPress-%5E6.0-blue)](https://wordpress.org/)
-[![Download](https://img.shields.io/github/v/release/fishdan/Utilities?display_name=tag&sort=semver)](https://github.com/fishdan/Utilities/releases/latest)
+
+## ⬇️ Download
+
+[![Latest Release](https://img.shields.io/github/v/release/fishdan/team-passwords?display_name=tag&sort=semver)](https://github.com/fishdan/team-passwords/releases/latest)
+
+**Direct ZIP (always latest):**  
+https://github.com/fishdan/team-passwords/releases/latest/download/team-passwords.zip
+
+**Specific version:**  
+https://github.com/fishdan/team-passwords/releases/download/v0.1.3/team-passwords-0.1.3.zip
+
 
 
 A lightweight WordPress plugin for securely storing and sharing passwords with your team.
