@@ -1,0 +1,132 @@
+# ------------------------------------------------------------
+#  WordPress Plugin Release (Generic, POSIX-path ZIP)
+#  HOW TO USE (CONFIGURE ME below):
+#    1) Set PLUGIN_SLUG to your plugin folder name (e.g., "wikisearch").
+#    2) If your plugin lives in a subfolder of a monorepo, set PLUGIN_SUBDIR
+#       to that path (e.g., "plugins/wikisearch"). Otherwise leave it empty.
+#    3) Set ENTRY_FILE to your main plugin file (must contain the plugin header).
+#    4) If your plugin needs Composer's vendor/, set USE_COMPOSER to 'true'.
+#       (The job will install deps and package them.)
+#    5) Push a tag like v0.1.0 — this workflow will build a ZIP and publish a Release.
+#
+#  NOTES:
+#    • The ZIP has a top-level folder named after PLUGIN_SLUG (WordPress expects this).
+#    • Uses `git archive` (POSIX slashes) to avoid Windows backslash issues.
+#    • Fails the build if the plugin header Version doesn't match the tag.
+#    • Requires repo Settings → Actions → General → Workflow permissions: Read and write.
+# ------------------------------------------------------------
+
+name: plugin-release
+
+on:
+  push:
+    tags:
+      - 'v*'        # e.g. v0.1.0, v1.2.3
+  workflow_dispatch: # allow manual runs
+
+permissions:
+  contents: write
+
+env:
+  # ========== CONFIGURE ME ==========
+  PLUGIN_SLUG: team-passwords         # Folder name inside the ZIP (and WP plugin dir)
+  PLUGIN_SUBDIR: 'team-passwords'     # If monorepo: path to plugin (e.g., plugins/wikisearch). '' for repo root
+  ENTRY_FILE: team-passwords.php      # Main plugin file (contains "Plugin Name:" header)
+  USE_COMPOSER: 'false'               # 'true' to include vendor/ via Composer, else 'false'
+  # (Optional) Extra excludes when doing the Composer packaging path
+  EXTRA_EXCLUDES: |
+    .git
+    .github
+    tests
+    node_modules
+    .DS_Store
+# ===================================
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Derive tag and version
+        id: meta
+        run: |
+          TAG="${GITHUB_REF_NAME}"
+          VERSION="${TAG#v}"
+          ZIP_NAME="${{ env.PLUGIN_SLUG }}-${TAG}.zip"
+          echo "tag=$TAG" >> $GITHUB_OUTPUT
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "zip=$ZIP_NAME" >> $GITHUB_OUTPUT
+
+      - name: Verify plugin header (exists and matches tag)
+        run: |
+          ROOT="$GITHUB_WORKSPACE"
+          [ -n "${{ env.PLUGIN_SUBDIR }}" ] && ROOT="$ROOT/${{ env.PLUGIN_SUBDIR }}"
+          FILE="$ROOT/${{ env.ENTRY_FILE }}"
+
+          if [ ! -f "$FILE" ]; then
+            echo "::error ::ENTRY_FILE not found: $FILE"
+            exit 1
+          fi
+
+          if ! grep -q "Plugin Name:" "$FILE"; then
+            echo "::error ::Plugin header not found in $FILE (missing 'Plugin Name:')"
+            exit 1
+          fi
+
+          FILE_VERSION=$(grep -E "Version:\s*[0-9]" "$FILE" | head -1 | sed -E 's/.*Version:\s*([0-9][^ ]*).*/\1/')
+          if [ -n "$FILE_VERSION" ] && [ "$FILE_VERSION" != "${{ steps.meta.outputs.version }}" ]; then
+            echo "::error ::Version in ${ { env.ENTRY_FILE } } ($FILE_VERSION) does not match tag (${{ steps.meta.outputs.version }})"
+            exit 1
+          fi
+
+      # --- Simple path: no Composer, use git archive (POSIX paths) ---
+      - name: Build ZIP (git archive, repo root)
+        if: env.USE_COMPOSER == 'false' && env.PLUGIN_SUBDIR == ''
+        run: |
+          git archive --format=zip \
+            --output "${{ steps.meta.outputs.zip }}" \
+            --prefix="${{ env.PLUGIN_SLUG }}/" \
+            "$GITHUB_SHA"
+
+      - name: Build ZIP (git archive, monorepo subfolder)
+        if: env.USE_COMPOSER == 'false' && env.PLUGIN_SUBDIR != ''
+        run: |
+          git archive --format=zip \
+            --output "${{ steps.meta.outputs.zip }}" \
+            --prefix="${{ env.PLUGIN_SLUG }}/" \
+            "$GITHUB_SHA":"${{ env.PLUGIN_SUBDIR }}"
+
+      # --- Composer path: stage into dist/, install deps, then zip ---
+      - name: Build ZIP (Composer packaging)
+        if: env.USE_COMPOSER == 'true'
+        run: |
+          sudo apt-get update && sudo apt-get install -y rsync zip
+          SRC="$GITHUB_WORKSPACE"
+          [ -n "${{ env.PLUGIN_SUBDIR }}" ] && SRC="$SRC/${{ env.PLUGIN_SUBDIR }}"
+          WORK="dist/${{ env.PLUGIN_SLUG }}"
+          mkdir -p "$WORK"
+
+          # Copy source while excluding junk/dev folders
+          rsync -a "$SRC"/ "$WORK"/ $(printf -- "--exclude=%s " ${{ env.EXTRA_EXCLUDES }})
+
+          # Install prod deps if composer.json exists
+          if [ -f "$WORK/composer.json" ]; then
+            pushd "$WORK" >/dev/null
+            composer install --no-dev --prefer-dist --optimize-autoloader
+            popd >/dev/null
+          fi
+
+          # Create the ZIP with a single top-level folder
+          (cd dist && zip -r "../${{ steps.meta.outputs.zip }}" "${{ env.PLUGIN_SLUG }}")
+
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.meta.outputs.tag }}
+          files: ${{ steps.meta.outputs.zip }}
+          generate_release_notes: true
